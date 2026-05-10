@@ -409,7 +409,7 @@
                 html += '<tr>';
                 html += '<td>' + year + '</td>';
                 html += '<td>' + formatNumber(totalContribution) + '</td>';
-                html += '<td>' + formatNumber(protectionValue) + '</td>';
+                html += '<td>' + (year === 20 ? formatNumber(protectionValue) : '-') + '</td>';
                 html += '<td>' + formatNumber(results[2][idx].accountValue) + '</td>';
                 html += '<td>' + formatNumber(results[2][idx].surrenderValue) + '</td>';
                 html += '</tr>';
@@ -463,7 +463,7 @@
                 html += '<td>' + year + '</td>';
                 html += '<td>' + formatNumber(results[idx].totalContribution) + '</td>';
                 html += '<td style="color: ' + returnColor + '; font-weight: bold;">' + (spReturn >= 0 ? '+' : '') + spReturn.toFixed(2) + '%</td>';
-                html += '<td>' + formatNumber(results[idx].protectionValue) + '</td>';
+                html += '<td>' + (year === 20 ? formatNumber(results[idx].protectionValue) : '-') + '</td>';
                 html += '<td>' + formatNumber(results[idx].accountValue) + '</td>';
                 html += '<td>' + formatNumber(results[idx].surrenderValue) + '</td>';
                 html += '</tr>';
