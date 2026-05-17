@@ -175,6 +175,73 @@
         th[colspan] {
             background-color: #2c2c2c;
         }
+
+        .prepay-section {
+            margin: 20px 0;
+            padding: 15px 20px;
+            background-color: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-text {
+            font-weight: bold;
+            color: #3d5a80;
+            font-size: 15px;
+        }
+
+        .prepay-controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px dashed #ddd;
+        }
+
+        .prepay-controls label {
+            font-size: 14px;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .prepay-controls select {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            font-size: 14px;
+            border-radius: 2px;
+            background-color: #fff;
+        }
+
+        .prepay-controls select:focus {
+            outline: none;
+            border-color: #3d5a80;
+        }
+
+        .prepay-hint {
+            font-size: 14px;
+            color: #555;
+            margin-left: auto;
+        }
+
+        .prepay-hint span {
+            font-weight: bold;
+            color: #b8860b;
+        }
     </style>
 </head>
 <body>
@@ -227,6 +294,25 @@
                 <div class="form-group">
                     <label>預計每年報酬率(%)<span class="required">*</span></label>
                     <input type="number" id="returnRate" step="0.01" value="9.60">
+                </div>
+            </div>
+
+            <div class="prepay-section">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="enablePrepay" onchange="togglePrepay()"> 
+                    <span class="checkbox-text">預繳供款</span>
+                </label>
+                <div class="prepay-controls" id="prepayControls" style="display:none;">
+                    <label>預繳年期</label>
+                    <select id="prepayYears">
+                        <option value="5">5年</option>
+                        <option value="6">6年</option>
+                        <option value="7">7年</option>
+                        <option value="8">8年</option>
+                        <option value="9">9年</option>
+                        <option value="10">10年</option>
+                    </select>
+                    <span class="prepay-hint" id="prepayHint">一次性預繳金額：<span id="prepayAmount">0.00</span> USD</span>
                 </div>
             </div>
 
@@ -283,8 +369,29 @@
     </div>
 
     <script>
-        function simulateStarryPro(monthlyContribution, annualReturn, years) {
-            // Support both single rate and array of rates
+        function togglePrepay() {
+            const enabled = document.getElementById('enablePrepay').checked;
+            document.getElementById('prepayControls').style.display = enabled ? 'flex' : 'none';
+            if (enabled) updatePrepayHint();
+        }
+
+        function updatePrepayHint() {
+            const payment = parseFloat(document.getElementById('paymentAmount').value) || 0;
+            const years = parseInt(document.getElementById('prepayYears').value) || 5;
+            const total = payment * 12 * years;
+            document.getElementById('prepayAmount').textContent = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        document.getElementById('paymentAmount').addEventListener('input', function() {
+            if (document.getElementById('enablePrepay').checked) updatePrepayHint();
+        });
+        document.getElementById('prepayYears').addEventListener('change', function() {
+            if (document.getElementById('enablePrepay').checked) updatePrepayHint();
+        });
+
+        function simulateStarryPro(monthlyContribution, annualReturn, years, prepayYears) {
+            prepayYears = prepayYears || 0;
+
             let annualReturns;
             if (Array.isArray(annualReturn)) {
                 annualReturns = annualReturn;
@@ -293,7 +400,6 @@
             }
 
             const months = years * 12;
-            // Pre-calculate monthly rates for each year
             const monthlyRates = [];
             for (let yr = 0; yr < years; yr++) {
                 monthlyRates.push(Math.pow(1 + annualReturns[yr], 1 / 12) - 1);
@@ -309,18 +415,30 @@
             let initialBalance = 0.0;
             let accumBalance = 0.0;
             let accumPrincipal = 0.0;
+
+            const totalPrepaid = prepayYears > 0 ? monthlyContribution * 12 * prepayYears : 0;
+
+            if (prepayYears > 0) {
+                initialBalance = monthlyContribution * 36;
+                accumBalance = monthlyContribution * (prepayYears - 3) * 12;
+                accumPrincipal = monthlyContribution * (prepayYears - 3) * 12;
+            }
+
             const yearlyRecords = [];
 
             for (let t = 1; t <= months; t++) {
-                // Determine which year this month belongs to (0-based)
                 const yearIdx = Math.floor((t - 1) / 12);
                 const monthlyRate = monthlyRates[yearIdx];
 
-                if (t <= 36) {
-                    initialBalance += monthlyContribution;
+                if (prepayYears > 0) {
+                    // 预缴后不再追加供款
                 } else {
-                    accumBalance += monthlyContribution;
-                    accumPrincipal += monthlyContribution;
+                    if (t <= 36) {
+                        initialBalance += monthlyContribution;
+                    } else {
+                        accumBalance += monthlyContribution;
+                        accumPrincipal += monthlyContribution;
+                    }
                 }
 
                 initialBalance *= (1 + monthlyRate);
@@ -329,11 +447,10 @@
                 const trustFee = initialBalance * 0.0023;
                 initialBalance -= trustFee;
 
-                if (t >= 37) {
+                if (prepayYears > 0 || t >= 37) {
                     const adminFee = accumPrincipal * 0.0005;
-                    accumBalance -= adminFee;
                     const comboFee = accumBalance * 0.001;
-                    accumBalance -= comboFee;
+                    accumBalance -= (adminFee + comboFee);
                 }
 
                 if (initialBalance < 0) initialBalance = 0;
@@ -343,8 +460,14 @@
 
                 if (t % 12 === 0) {
                     const year = t / 12;
-                    const totalContribution = year * 12 * monthlyContribution;
-                    const protectionValue = totalContribution * 1.45;
+                    let totalContribution;
+                    if (prepayYears > 0) {
+                        totalContribution = totalPrepaid;
+                    } else {
+                        totalContribution = year * 12 * monthlyContribution;
+                    }
+                    const protectionMultiplier = prepayYears > 0 && prepayYears < 10 ? 1.00 : 1.45;
+                    const protectionValue = totalContribution * protectionMultiplier;
 
                     let surrenderValue;
                     if (year < 20) {
@@ -377,6 +500,8 @@
             const age = parseInt(document.getElementById('age').value);
             const payment = parseFloat(document.getElementById('paymentAmount').value);
             const userRate = parseFloat(document.getElementById('returnRate').value);
+            const prepayEnabled = document.getElementById('enablePrepay').checked;
+            const prepayYears = prepayEnabled ? parseInt(document.getElementById('prepayYears').value) : 0;
 
             if (!age || age < 18 || age > 55) {
                 alert('该年龄无法购买');
@@ -398,7 +523,7 @@
                 return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
 
-            const results = rates.map(r => simulateStarryPro(payment, r / 100, contributionYears));
+            const results = rates.map(r => simulateStarryPro(payment, r / 100, contributionYears, prepayYears));
 
             let html = '';
             for (let year = 1; year <= contributionYears; year++) {
@@ -427,12 +552,14 @@
 
         function showHistoricalData() {
             const payment = parseFloat(document.getElementById('paymentAmount').value);
+            const prepayEnabled = document.getElementById('enablePrepay').checked;
+            const prepayYears = prepayEnabled ? parseInt(document.getElementById('prepayYears').value) : 0;
+
             if (!payment || payment < 500) {
                 alert('請先輸入有效的每期供款金額');
                 return;
             }
 
-            // S&P 500 historical annual returns (2005-2024) - matching history.py
             const sp500Returns = [
                 3.00, 13.62, 3.53, -38.49, 23.45,
                 12.78, 0.00, 13.40, 29.60, 11.39,
@@ -442,15 +569,13 @@
             const startYear = 2005;
             const contributionYears = 20;
 
-            // Convert percentages to decimals for simulation
             const annualReturns = sp500Returns.map(r => r / 100);
 
             function formatNumber(n) {
                 return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
 
-            // Run simulation with variable annual returns
-            const results = simulateStarryPro(payment, annualReturns, contributionYears);
+            const results = simulateStarryPro(payment, annualReturns, contributionYears, prepayYears);
 
             let html = '';
             for (let year = 1; year <= contributionYears; year++) {
