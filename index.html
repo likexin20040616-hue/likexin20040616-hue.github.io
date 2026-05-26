@@ -448,9 +448,18 @@
                 initialBalance -= trustFee;
 
                 if (prepayYears > 0 || t >= 37) {
-                    const adminFee = accumPrincipal * 0.0005;
                     const comboFee = accumBalance * 0.001;
-                    accumBalance -= (adminFee + comboFee);
+                    accumBalance -= comboFee;
+                }
+
+                if (t >= 37) {
+                    let adminFee;
+                    if (prepayYears > 0) {
+                        adminFee = monthlyContribution * t * 0.0005;
+                    } else {
+                        adminFee = accumPrincipal * 0.0005;
+                    }
+                    accumBalance -= adminFee;
                 }
 
                 if (initialBalance < 0) initialBalance = 0;
