@@ -40,9 +40,15 @@ def simulate_starry_pro(monthly_contribution=1000, annual_return=0.05, years=20,
         initial_balance -= trust_fee
 
         if prepay_years > 0 or t >= 37:
-            admin_fee = accum_principal * 0.0005
             combo_fee = accum_balance * 0.001
-            accum_balance -= (admin_fee + combo_fee)
+            accum_balance -= combo_fee
+
+        if t >= 37:
+            if prepay_years > 0:
+                admin_fee = monthly_contribution * t * 0.0005
+            else:
+                admin_fee = accum_principal * 0.0005
+            accum_balance -= admin_fee
 
         initial_balance = max(initial_balance, 0.0)
         accum_balance = max(accum_balance, 0.0)
